@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lunar / Booth status</title>
+<style>
+  :root{color-scheme:dark;font-family:Arial,sans-serif;color:#ecece7;background:#101112}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:48px 28px}header{display:flex;justify-content:space-between;align-items:start;gap:20px;margin-bottom:28px}.eyebrow{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:#aaadaf}h1{font-size:clamp(36px,6vw,64px);letter-spacing:-.06em;font-weight:500;margin:12px 0}h2{font-size:20px;font-weight:500;margin:0 0 20px}p{line-height:1.6}.live{color:#8cd6a8}.badge{display:inline-block;border:1px solid #505458;padding:9px 12px;border-radius:4px;font-size:13px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card,section{border:1px solid #34373a;background:#1a1c1e;padding:24px}.card p{margin:0;color:#aaadaf;font-size:13px}.value{display:block;font-size:56px;letter-spacing:-.06em;margin:18px 0 12px}.note{color:#aaadaf;font-size:13px}section{margin-top:24px}.details{display:flex;gap:12px;flex-wrap:wrap}table{border-collapse:collapse;width:100%;font-size:14px}td,th{text-align:left;padding:16px 8px;border-bottom:1px solid #34373a}th{font-weight:400;color:#aaadaf;font-size:12px}td:first-child{font-family:monospace}.scroll{overflow:auto}#connection{font-size:13px;text-align:right}#connection[data-stale=true]{color:#ff9c8e}footer{margin-top:24px;color:#aaadaf;font-size:12px}@media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}header{display:block}#connection{text-align:left}.card{padding:18px}}@media(max-width:400px){.grid{grid-template-columns:1fr}}
+  #reset-total{margin-top:10px;padding:6px 9px;border:1px solid #505458;border-radius:4px;background:transparent;color:inherit;cursor:pointer;font:inherit;font-size:12px}#reset-total:disabled{opacity:.5;cursor:wait}#reset-error{color:#ff9c8e;margin-top:8px}
+  a{color:#9de1ec;text-underline-offset:3px}a:hover{color:#d4f5fb}button,select{font:inherit;font-size:13px;color:inherit;background:#25282b;border:1px solid #505458;border-radius:4px;padding:9px 12px}button{cursor:pointer}button:hover{background:#303438}button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #9de1ec;outline-offset:3px}.grid{margin-top:0}.grid .card{padding:16px 20px}.grid .value{font-size:36px;line-height:1;margin:10px 0}.grid .card p{font-size:12px}#print-queue{margin-top:24px;border-color:#505458}#print-queue h2{font-size:26px}#connection[data-stale=false]{color:#8cd6a8}td[data-print-status="printing"],td[data-print-status="print-queued"]{color:#9de1ec;font-weight:600}td[data-print-status="printed"]{color:#8cd6a8}td[data-print-status="print-failed"],td[data-print-status="print-stopped"],td[data-print-status="print-held"]{color:#ffb9a5}
+</style>
+<main>
+  <div style="position:fixed;top:8px;right:8px;z-index:100;padding:6px 9px;background:#000;color:#fff;font:10px/1.3 monospace;pointer-events:none">D01 / BACKEND STATUS</div>
+  <header><div><div class="eyebrow">Lunar / Photobooth operations</div><h1>Photobooth status</h1><div class="note" id="day">Loading activity…</div></div><p id="connection" role="status" aria-live="polite">Connecting…</p></header>
+
+  <div class="grid">
+    <div class="card"><p>Photos completed</p><strong class="value" id="total">—</strong><p id="count-note">All-time total</p><button type="button" id="reset-total">Reset completed total</button><p id="reset-error" role="alert"></p></div>
+    <div class="card"><p>Processing right now</p><strong class="value" id="processing">—</strong><p id="active">Waiting for status</p></div>
+    <div class="card"><p>Failed / today</p><strong class="value" id="failed">—</strong><p id="failures">—</p></div>
+  </div>
+  <section id="print-queue"><h2>Print queue</h2><p class="note">Original + chosen treatment + a different treatment. Two matching 2×6 strips per sheet.</p><div class="scroll"><table><thead><tr><th>Original photo</th><th>Second treatment</th><th>Status</th><th>Print proof</th></tr></thead><tbody id="strip-jobs"></tbody></table></div></section>
+
+  <section><h2>Service</h2><div class="details"><span class="badge" id="ai">AI: checking…</span><span class="badge" id="uptime">Uptime: —</span><span class="badge" id="interrupted">Interrupted: —</span></div></section>
+  <section><h2>Recent activity</h2><div class="scroll"><table><thead><tr><th>Photo ID</th><th>Treatment</th><th>Status</th><th>Started / completed</th></tr></thead><tbody id="jobs"></tbody></table></div><p class="note">Earlier portraits are imported from saved outputs. Historical failures were not tracked before this dashboard.</p></section>
+  <section><h2>Live analytics</h2><p class="note">Event counts since <span id="analytics-since">—</span>. One shared tablet serves many guests; starts and phone visits are more useful than unique browser counts. Local testing is counted separately.</p>
+    <label>Traffic <select id="analytics-environment"><option value="live">Production</option><option value="test">Local / test</option></select></label>
+    <button id="analytics-export" type="button">Download counts CSV</button>
+    <div class="scroll"><table><thead><tr><th>Interaction</th><th>Count</th></tr></thead><tbody id="analytics-counts"></tbody></table></div>
+    <h2 style="margin-top:24px">Latest interactions</h2><div class="scroll"><table><thead><tr><th>Time</th><th>Site</th><th>Event</th><th>Treatment / outcome</th></tr></thead><tbody id="analytics-recent"></tbody></table></div>
+    <p class="note">Phone visits count page opens, including repeat scans. Share complete means the system share sheet completed; Download started does not confirm a saved file. Historical visits before tracking began are unavailable.</p>
+  </section>
+  <footer>Refreshes every 3 seconds. Counts persist across restarts. Source photos and print copies do not count as additional portraits.</footer>
+</main>
+<script>
+  const set=(id,value)=>document.getElementById(id).textContent=value;
+  function updateCount(data){
+    set('total',data.completed.total);
+    set('count-note',data.completedResetAt?`Since reset ${new Date(data.completedResetAt).toLocaleString(undefined,{timeZone:data.timezone})}`:'All-time total');
+  }
+  document.getElementById('reset-total').addEventListener('click',async()=>{
+    const button=document.getElementById('reset-total');button.disabled=true;set('reset-error','');
+    try{
+      const response=await fetch('/api/status/completed/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset:true})});
+      if(!response.ok)throw new Error('Could not reset the completed total. Please try again.');
+      updateCount(await response.json());
+    }catch(error){set('reset-error',error.message);}
+    finally{button.disabled=false;}
+  });
+  const eventLabels={booth_view:'Booth page opens',booth_start:'Booth starts',photo_captured:'Photos captured',photo_retake:'Retakes',photo_approved:'Photos approved',generation_start:'Generations requested',generation_complete:'Generations completed',generation_complete_ai:'AI portraits completed',generation_complete_local:'Local fallback portraits completed',generation_error:'Generation requests failed',takeaway_view:'Phone page opens',portrait_loaded:'Phone portraits loaded',share_start:'Save / share taps',share_complete:'Native shares completed',download_started:'Downloads started',share_cancelled:'Shares cancelled',share_error:'Share errors'};
+  let analytics;
+  function renderAnalytics(){
+    if(!analytics)return;
+    const environment=document.getElementById('analytics-environment').value;
+    set('analytics-since',new Date(analytics.since).toLocaleString());
+    const tableRows=(values)=>values.map(values=>{const row=document.createElement('tr');for(const value of values){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}return row;});
+    document.getElementById('analytics-counts').replaceChildren(...tableRows(Object.entries(eventLabels).map(([key,label])=>[label,analytics.counts[environment]?.[key]||0])));
+    document.getElementById('analytics-recent').replaceChildren(...tableRows(analytics.recent.filter(event=>event.environment===environment).slice(0,12).map(event=>[new Date(event.at).toLocaleTimeString(),event.site,eventLabels[event.name]||event.name,[event.style,event.mode,event.durationMs!=null?`${(event.durationMs/1000).toFixed(1)}s`:''].filter(Boolean).join(' · ')||'—'])));
+  }
+  document.getElementById('analytics-environment').addEventListener('change',renderAnalytics);
+  document.getElementById('analytics-export').addEventListener('click',()=>{
+    if(!analytics)return;
+    const environment=document.getElementById('analytics-environment').value;
+    const csv=['event,count,traffic,since',...Object.keys(eventLabels).map(key=>`${key},${analytics.counts[environment]?.[key]||0},${environment},${analytics.since}`)].join('\n');
+    const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const link=document.createElement('a');link.href=url;link.download=`photobooth-analytics-${environment}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  async function refresh(){
+    try{
+      const response=await fetch('/api/status',{cache:'no-store'});
+      if(!response.ok)throw new Error('Status unavailable');
+      const data=await response.json();
+      updateCount(data);
+      analytics=data.analytics;renderAnalytics();
+      set('processing',data.processing.length);set('active',data.processing.length?'Generating portraits':'Ready for the next portrait');
+      set('failed',data.failed.today);set('failures',`${data.failed.total} failed since tracking began`);
+      set('day',`Activity for ${data.today} · ${data.timezone}`);
+      const stripRows=(data.strips?.recent||[]).map(job=>{
+        const row=document.createElement('tr');
+        const photoCell=document.createElement('td');
+        const original=document.createElement('a');original.href=`/photos/${job.photoId}-source.jpg`;original.target='_blank';original.rel='noopener';original.title=job.photoId;
+        const thumbnail=document.createElement('img');thumbnail.src=original.href;thumbnail.alt='Original portrait';thumbnail.loading='lazy';thumbnail.width=64;thumbnail.height=64;thumbnail.style.cssText='display:block;object-fit:cover;border-radius:3px';original.append(thumbnail);photoCell.append(original);row.append(photoCell);
+        const labels={'print-queued':'Queued','printing':'Printing','printed':'Printed','print-held':'Held','print-stopped':'Stopped','print-cancelled':'Cancelled','print-failed':'Print failed','print-interrupted':'Interrupted'};
+        for(const value of [job.alternateStyle.label,job.printTrackingError?'Print status unavailable':labels[job.status]||job.status]){const cell=document.createElement('td');cell.textContent=value;if(row.children.length===2)cell.dataset.printStatus=job.status;row.append(cell);}
+        const cell=document.createElement('td');
+        if(job.sheetUrl){const link=document.createElement('a');link.href=job.sheetUrl;link.textContent='View sheet';link.target='_blank';link.rel='noopener';cell.append(link);}
+        else cell.textContent=job.error||'Preparing…';
+        row.append(cell);return row;
+      });
+      if(!stripRows.length){const row=document.createElement('tr');const cell=document.createElement('td');cell.colSpan=4;cell.textContent='No photo strips prepared yet.';row.append(cell);stripRows.push(row);}
+      document.getElementById('strip-jobs').replaceChildren(...stripRows);
+      set('ai',data.aiConfigured?(data.generation?.localFallbackEnabled?'AI + classic fallback ready':'AI generation configured'):(data.generation?.localFallbackEnabled?'Classic photo mode ready':'AI generation not configured'));
+      set('uptime',`Uptime: ${Math.floor(data.uptimeSeconds/3600)}h ${Math.floor(data.uptimeSeconds/60)%60}m`);
+      set('interrupted',`Interrupted by restart: ${data.interrupted}`);
+      const rows=data.recent.map(job=>{
+        const row=document.createElement('tr');
+        const when=new Date(job.startedAt||job.finishedAt).toLocaleString(undefined,{timeZone:data.timezone});
+        for(const value of [job.id,job.style||(job.imported?'Earlier portrait':'—'),job.status,when]){
+          const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+        }
+        return row;
+      });
+      if(!rows.length){const row=document.createElement('tr');const cell=document.createElement('td');cell.colSpan=4;cell.textContent='No portraits yet.';row.append(cell);rows.push(row);}
+      document.getElementById('jobs').replaceChildren(...rows);
+      document.getElementById('connection').dataset.stale='false';
+      set('connection',`● Live · updated ${new Date(data.updatedAt).toLocaleTimeString()}`);
+    }catch{document.getElementById('connection').dataset.stale='true';set('connection','Connection lost · showing last known values');}
+    finally{setTimeout(refresh,3000);}
+  }
+  refresh();
+</script>
+</html>

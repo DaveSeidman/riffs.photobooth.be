@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: riffs-photobooth-backend
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: riffs-photos
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: FAL_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: PUBLIC_PHOTO_ORIGIN
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+      - key: FAL_MODEL
+        value: fal-ai/nano-banana-2/edit
+      - key: FAL_RESOLUTION
+        value: 1K
+      - key: FAL_THINKING_LEVEL
+        value: high
+      - key: CAMPAIGN_TIMEOUT_MS
+        value: "120000"
+      - key: PRINT_PREPARE_STRIPS
+        value: "false"
+      - key: PRINT_AUTO_SUBMIT
+        value: "false"
