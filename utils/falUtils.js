@@ -59,7 +59,10 @@ export function createFalEditor({
       logs: false,
       timeout: timeoutMs,
       abortSignal: context.signal,
-      onQueueUpdate: (update) => logEvent("model.queue", { model, photoId: context.photoId, role: context.role, status: update.status, queuePosition: update.queue_position }),
+      onQueueUpdate: (update) => {
+        context.onQueueUpdate?.(update);
+        logEvent("model.queue", { model, photoId: context.photoId, role: context.role, status: update.status, queuePosition: update.queue_position });
+      },
     });
     const outputUrl = extractFirstImageUrl(result);
     if (!outputUrl) throw new Error("The image model returned no output URL.");

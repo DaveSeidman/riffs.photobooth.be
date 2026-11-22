@@ -139,8 +139,21 @@ export function createApp(overrides = {}) {
     try { await strips.rebuild(request.params.photoId); response.json(strips.get(request.params.photoId)); } catch (error) { next(error); }
   });
 
+  const progress = new Map();
+  app.get("/api/generation-progress/:id", (req, res) => {
+    res.set("Cache-Control", "no-store").json({ stage: progress.get(req.params.id) ?? null });
+  });
+
   app.post("/submit", upload.single("photo"), async (request, response, next) => {
     let activePhotoId;
+    const progressId = request.body?.progressId;
+    const track = /^[a-f0-9-]{36}$/i.test(progressId ?? "") && !progress.has(progressId);
+    const setStage = stage => { if (track) progress.set(progressId, stage); };
+    const onQueueUpdate = ({status}) => {
+      if (status === "IN_QUEUE") setStage("queued");
+      if (status === "IN_PROGRESS") setStage("generating");
+      if (status === "COMPLETED") setStage("finishing");
+    };
     try {
       if (!request.file) {
         response.status(400).json({ success: false, message: "A photo file is required." });
@@ -170,6 +183,7 @@ export function createApp(overrides = {}) {
       logEvent("generation.started", { requestId: request.requestId, photoId, mode, style: style.id, customPrompt: Boolean(promptOverride), uploadBytes: request.file.size });
       activity.start(photoId, style.label);
       activePhotoId = photoId;
+      setStage("preparing");
       const inputWidth = isCampaign ? Math.max(1024, runtimeConfig.falInputWidth || 512) : runtimeConfig.falInputWidth || 512;
       const modelBuffer = await resizeForModel(request.file.path, inputWidth);
       logEvent("generation.source-prepared", { requestId: request.requestId, photoId, bytes: modelBuffer.length, inputWidth });
@@ -201,8 +215,9 @@ export function createApp(overrides = {}) {
             if (sourceUrlPromise) {
               const sourceUrl = await sourceUrlPromise;
               signal.throwIfAborted();
-              output = { styledUrl: await editor.edit(sourceUrl, promptOverride || style.prompt, { photoId, role: "selected", signal, aspectRatio: isCampaign ? style.aspectRatio : undefined }) };
-            } else output = await editor.styleTransfer(modelBuffer, request.file.filename, promptOverride || style.prompt, {signal, aspectRatio: isCampaign ? style.aspectRatio : undefined});
+              output = { styledUrl: await editor.edit(sourceUrl, promptOverride || style.prompt, { photoId, role: "selected", signal, onQueueUpdate, aspectRatio: isCampaign ? style.aspectRatio : undefined }) };
+            } else output = await editor.styleTransfer(modelBuffer, request.file.filename, promptOverride || style.prompt, {signal, onQueueUpdate, aspectRatio: isCampaign ? style.aspectRatio : undefined});
+            setStage("finishing");
             const image = await fetchBuffer(output.styledUrl, signal);
             return { ...output, buffer: await sharp(image).rotate().jpeg({ quality: 94, chromaSubsampling: "4:4:4" }).toBuffer(), label: promptOverride ? "Custom portrait" : style.label, styleProfile: style.id };
           },
@@ -255,6 +270,8 @@ export function createApp(overrides = {}) {
       logEvent("generation.failed", { requestId: request.requestId, photoId: activePhotoId, error: { name: error.name, message: error.message } }, "error");
       if (activePhotoId) { activity.finish(activePhotoId, "failed"); reviews.finish(activePhotoId,"failed"); }
       next(error);
+    } finally {
+      if (track) progress.delete(progressId);
     }
   });
 
