@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import request from 'supertest';
+import sharp from 'sharp';
+import {createApp} from '../app.js';
+import {config} from '../config.js';
+import {createReviewStore} from '../utils/reviews.js';
+
+test('review preserves the actual model input and prompt and restricts read/write access',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'lunar-review-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const uploads=[],calls=[];
+  const image=await sharp({create:{width:1400,height:1100,channels:3,background:'#734568'}}).jpeg().toBuffer();
+  const runtime={...config,reviewToken:'test-access',falKey:'',falModel:'fal-ai/nano-banana-2/edit',falResolution:'1K',falThinkingLevel:'high',allowedOrigins:[],print:{prepareStrips:false},directories:{photos:path.join(root,'photos'),uploads:path.join(root,'uploads')}};
+  const app=createApp({config:runtime,editor:{upload:async b=>{uploads.push(Buffer.from(b));return `https://test.invalid/${uploads.length}`;},edit:async(images,prompt)=>{calls.push({images,prompt});return `data:image/jpeg;base64,${image.toString('base64')}`;}}});
+  await request(app).get('/api/reviews').expect(401);
+  const response=await request(app).post('/submit').field('style','dramatic-pose').field('portraitContext',JSON.stringify({peopleCount:1,treatment:'blush'})).attach('photo',image,'capture.jpg').expect(200);
+  const id=response.body.output.photoId;
+  const list=await request(app).get('/api/reviews').set('Authorization','Bearer test-access').expect(200);
+  const record=list.body.reviews[0];assert.equal(record.prompt,calls[0].prompt);assert.equal(record.legacy,false);assert.equal(record.parameters.thinking_level,'high');assert.equal(record.status,'completed');
+  assert.deepEqual(await fs.readFile(path.join(root,'reviews',`${id}-input.jpg`)),uploads[0]);
+  assert.deepEqual(await fs.readFile(path.join(root,'reviews',`${id}-reference.jpg`)),uploads[1]);
+  assert.equal((await sharp(uploads[0]).metadata()).width,1024);
+  await request(app).get(`/api/reviews/${id}/assets/input`).expect(401);
+  await request(app).get(`/api/reviews/${id}/assets/input`).set('Authorization','Bearer test-access').expect(200).expect('Content-Type',/image\/jpeg/);
+  await request(app).get(`/photos/../reviews/${id}.json`).expect(404);
+  const rating={likeness:'not-me',bottle:'correct',quality:4,issues:['face-shape'],notes:'Jaw changed.'};
+  await request(app).put(`/api/reviews/${id}/rating`).send(rating).expect(401);
+  await request(app).put(`/api/reviews/${id}/rating`).set('Authorization','Bearer test-access').send({...rating,quality:99}).expect(400);
+  await request(app).put(`/api/reviews/${id}/rating`).set('Authorization','Bearer test-access').send(rating).expect(200);
+  const reopened=createReviewStore(runtime.directories.photos);assert.equal(reopened.get(id).rating.notes,'Jaw changed.');assert.equal(reopened.get(id).prompt,calls[0].prompt);
+  assert.equal(reopened.asset('../outside','input'),null);
+});
+test('historical reviews explicitly retain unknown input/prompt provenance',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'lunar-legacy-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));const photos=path.join(root,'photos');await fs.mkdir(photos);
+  const id='1795263512146-7660cc';await fs.writeFile(path.join(photos,`${id}.jpg`),'result');await fs.writeFile(path.join(photos,`${id}-source.jpg`),'source');
+  const store=createReviewStore(photos),record=store.list()[0];assert.equal(record.legacy,true);assert.equal(record.prompt,null);assert.equal(store.asset(id,'input'),path.join(photos,`${id}-source.jpg`));
+});

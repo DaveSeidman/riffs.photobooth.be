@@ -1,3 +1,5 @@
+import { createReviewStore, mountReviews } from "./utils/reviews.js";
+import { falInput } from "./utils/falUtils.js";
 import { photoShareUrl } from "./utils/photoShareUrl.js";
 import { dramaticPoseSpec, createPostcardAsset, loadBottleReference } from "./utils/lunarExperience.js";
 import { createAnalyticsStore } from "./utils/analytics.js";
@@ -27,9 +29,10 @@ export function createApp(overrides = {}) {
     thinkingLevel: runtimeConfig.falThinkingLevel,
     timeoutMs: Math.max(runtimeConfig.falTimeoutMs, runtimeConfig.campaignTimeoutMs || 120000, (runtimeConfig.fallback?.normalDurationMs || 17000) * 2 + 5000),
   });
-  let bottleReferencePromise;
+  let bottleReferencePromise, bottleBufferPromise;
+  const bottleBuffer=()=>bottleBufferPromise ||= loadBottleReference();
   const bottleReference = () => {
-    if (!bottleReferencePromise) bottleReferencePromise = loadBottleReference()
+    if (!bottleReferencePromise) bottleReferencePromise = bottleBuffer()
       .then(buffer => editor.upload(buffer, 'lunar-bottles.jpg'))
       .catch(error => { bottleReferencePromise = null; throw error; });
     return bottleReferencePromise;
@@ -37,6 +40,7 @@ export function createApp(overrides = {}) {
   const app = express();
 
   ensureDirectories([runtimeConfig.directories.uploads, runtimeConfig.directories.photos]);
+  const reviews = createReviewStore(runtimeConfig.directories.photos);
   const analytics = createAnalyticsStore(runtimeConfig.directories.photos);
   const generation = createGenerationFallback({ directory: runtimeConfig.directories.photos, settings: runtimeConfig.fallback });
   const activity = createActivityStore(runtimeConfig.directories.photos, { timezone: runtimeConfig.statusTimezone });
@@ -71,6 +75,7 @@ export function createApp(overrides = {}) {
     },
   }));
   app.use(express.json());
+  mountReviews(app,reviews,runtimeConfig.reviewToken);
   app.use("/uploads", express.static(runtimeConfig.directories.uploads));
   app.use("/photos", express.static(runtimeConfig.directories.photos));
 
@@ -189,6 +194,9 @@ export function createApp(overrides = {}) {
         const generated = await runner.run({ photoId, role: "selected", styleId: style.id, sourceBuffer: originalBuffer, startedAt: inferenceStarted, deadlineMs, failureSimulation,
           aiTask: async (signal) => {
             if (!aiAvailable) throw new Error("AI service is not configured.");
+            const prompt=promptOverride || style.prompt;
+            const {image_urls,...parameters}=falInput({model:runtimeConfig.falModel,resolution:runtimeConfig.falResolution,thinkingLevel:runtimeConfig.falThinkingLevel,imageUrl:[],prompt,aspectRatio:isCampaign?style.aspectRatio:undefined});
+            reviews.start({id:photoId,prompt,model:runtimeConfig.falModel,parameters,styleId:style.id,styleLabel:style.label,portraitContext:portraitContext||null},modelBuffer,isCampaign?await bottleBuffer():null);
             let output;
             if (sourceUrlPromise) {
               const sourceUrl = await sourceUrlPromise;
@@ -216,6 +224,7 @@ export function createApp(overrides = {}) {
       const styledUrl = generated.styledUrl || `/photos/${photoId}.jpg`;
       logEvent("generation.saved", { requestId: request.requestId, photoId });
       activity.finish(photoId, "completed", { generationMode: generated.generationMode, style: generated.label || style.label });
+      reviews.finish(photoId,"completed",{generationMode:generated.generationMode,durationMs:Math.round(performance.now()-inferenceStarted)});
       activePhotoId = null;
       response.json({
         success: true,
@@ -244,7 +253,7 @@ export function createApp(overrides = {}) {
       });
     } catch (error) {
       logEvent("generation.failed", { requestId: request.requestId, photoId: activePhotoId, error: { name: error.name, message: error.message } }, "error");
-      if (activePhotoId) activity.finish(activePhotoId, "failed");
+      if (activePhotoId) { activity.finish(activePhotoId, "failed"); reviews.finish(activePhotoId,"failed"); }
       next(error);
     }
   });

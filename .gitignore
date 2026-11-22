@@ -12,3 +12,5 @@ style-references/**/_source-*/
 !.env.example
 .local/
 *.log
+
+reviews/

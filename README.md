@@ -40,3 +40,9 @@ Do not point this deployment at Every's photo directory. The existing Every serv
 ## Dependency audit
 
 At initial publication (2026-11-20), `npm audit` reports three findings: a high-severity librsvg advisory through pinned `sharp` 0.35.4 and two moderate findings through development-only `nodemon`/`minimatch`. The audit reports no available fix. Review updated package releases before event deployment; the frontend audit is clean.
+
+## Generation review archive
+
+New AI attempts archive the exact resized JPEG input bytes and product-reference bytes, exact prompt, shared fal request parameters, model, hashes, outcome, and timing. Records and ratings live in `DATA_DIR/reviews`, outside the public photos directory. Existing photos are listed as legacy records with their saved source; unavailable historical prompts or exact inputs are never reconstructed. Generation itself is unchanged.
+
+Set `REVIEW_TOKEN` to a random private access code. `/api/reviews`, its image endpoints, and rating writes require `Authorization: Bearer <code>`. With no code configured the review API is disabled. Never place the code in frontend environment variables. The frontend review route is `/#/review` (including the GitHub Pages repository base path). The browser retains the entered code only for its session. Ratings guide manual prompt experiments; they do not automatically train or alter the model. Include the reviews directory in photo-data backups and retention cleanup.

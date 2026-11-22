@@ -17,6 +17,7 @@ const allowedOrigins = resolveAllowedOrigins(process.env.ALLOWED_ORIGINS);
 
 
 export const config = {
+  reviewToken: process.env.REVIEW_TOKEN || "",
   port: numberFromEnv("PORT", 8000),
   publicPhotoOrigin: process.env.PUBLIC_PHOTO_ORIGIN || "",
   statusTimezone: process.env.STATUS_TIMEZONE || "America/New_York",

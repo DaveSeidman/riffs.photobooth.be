@@ -16,6 +16,23 @@ const extractFirstImageUrl = (result) => {
   return typeof images[0] === "string" ? images[0] : images[0]?.url ?? null;
 };
 
+export function falInput({model, resolution="1K", thinkingLevel="minimal", imageUrl, prompt, aspectRatio}) {
+  const input = {
+      prompt,
+      image_urls: Array.isArray(imageUrl) ? imageUrl : [imageUrl],
+      num_images: 1,
+      output_format: "jpeg",
+      limit_generations: true,
+    };
+    if (aspectRatio) input.aspect_ratio = aspectRatio;
+    if (model === "fal-ai/nano-banana-2/edit") {
+      input.resolution = resolution;
+      input.thinking_level = thinkingLevel;
+      input.enable_web_search = false;
+    }
+  return input;
+}
+
 export function createFalEditor({
   credentials,
   model,
@@ -36,19 +53,7 @@ export function createFalEditor({
   const edit = async (imageUrl, prompt, context = {}) => {
     const started = performance.now();
     logEvent("model.edit-started", { model, photoId: context.photoId, role: context.role });
-    const input = {
-      prompt,
-      image_urls: Array.isArray(imageUrl) ? imageUrl : [imageUrl],
-      num_images: 1,
-      output_format: "jpeg",
-      limit_generations: true,
-    };
-    if (context.aspectRatio) input.aspect_ratio = context.aspectRatio;
-    if (model === "fal-ai/nano-banana-2/edit") {
-      input.resolution = resolution;
-      input.thinking_level = thinkingLevel;
-      input.enable_web_search = false;
-    }
+    const input = falInput({model,resolution,thinkingLevel,imageUrl,prompt,aspectRatio:context.aspectRatio});
     const result = await fal.subscribe(model, {
       input,
       logs: false,
