@@ -51,7 +51,8 @@ PHOTOGRAPHY: Deep black-plum studio atmosphere; a soft lunar key on faces, preci
   if (!treatment) return spec;
   const blush = treatment === "blush";
   const name = blush ? "Blush" : "Pulse";
-  spec.id = `riiffs-lunar-${treatment}-campaign-v3`;
+  const bottleSide = blush ? "left" : "right";
+  spec.id = `riiffs-lunar-${treatment}-campaign-v6`;
   spec.label = `Lunar ${name}`;
   const treatmentStaging = `STAGING: Keep every original guest behind a table, with faces clearly visible and head angles close to the source. Use subtle shoulder turns and poised, natural expressions. Place exactly ONE Lunar ${name} bottle upright on the table in the lower foreground, fully visible, realistically hand-sized, with a grounded contact shadow. Nobody holds a bottle. Do not let the product or table hide a face. For groups, widen the framing or arrange rows to preserve everyone. Elegant, fully clothed contemporary tailoring; preserve cultural and religious garments. Younger guests retain age-appropriate clothing, expressions and non-romantic staging. Never infer gender, relationships or scent preference from appearance.`;
   const product = `PRODUCT ACCURACY: IMAGE 2 supplies the product geometry only. Include only the ${blush ? "raspberry-pink Lunar Blush" : "pink/violet/cobalt Lunar Pulse"} bottle, exactly once. Do not include the other fragrance. Match the reference: tall clear glass rounded rectangular exterior with deep curved bevels, cap and body divided at the waist, glittering hourglass-shaped coloured cavity inside. Preserve clear glass around the cavity, convincing thickness, delicate metallic sparkles and supplied product lettering where legible. No generic atomizer or invented bottle shape.`;
@@ -62,6 +63,7 @@ PHOTOGRAPHY: Deep black-plum studio atmosphere; a soft lunar key on faces, preci
     .replace(/STAGING:[\s\S]*?(?=\n\nPRODUCT ACCURACY:)/, treatmentStaging)
     .replace(/PRODUCT ACCURACY:[\s\S]*?(?=\n\nPHOTOGRAPHY:)/, product)
     .replace(/PHOTOGRAPHY:[\s\S]*$/, photography);
+  spec.prompt += `\n\nBOTTLE POSITION: Set the upright Lunar ${name} bottle near the viewer’s ${bottleSide} edge of the lower foreground, with a small gap so the entire bottle stays visible. Shift its position on the table while preserving the reference bottle’s exact silhouette, cap and body proportions, colour and lettering. Product fidelity takes priority over exact edge spacing.`;
   return spec;
 }
 
