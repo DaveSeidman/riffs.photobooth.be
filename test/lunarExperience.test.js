@@ -142,6 +142,8 @@ test("both treatments reach generation with the correct bottle and postcard pale
     assert.match(spec.prompt, /SQUARE footprint when viewed from above/);
     assert.match(spec.prompt, /perfectly rotationally symmetric surface of revolution/);
     assert.match(spec.prompt, /smoothly domed, rounded ends/);
+    assert.match(spec.prompt, /slightly smaller than the guest’s face/);
+    assert.match(spec.prompt, /Do not alter its shape to make it appear smaller/);
     assert.match(spec.prompt, /optically clear/);
     assert.match(spec.prompt, /Nobody holds a bottle/);
     assert.doesNotMatch(spec.prompt, /Include BOTH|The guest holds|complementary bottle/);
