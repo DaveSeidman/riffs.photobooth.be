@@ -22,8 +22,8 @@ test("campaign direction preserves identities, supports solo and groups, and nev
   const pair = dramaticPoseSpec(context);
   assert.equal(pair.aspectRatio, "2:3");
   assert.match(pair.prompt, /Include ALL of them exactly once/);
-  assert.match(pair.prompt, /actual people visible in IMAGE 1 ALWAYS override the numeric estimate/);
-  assert.match(pair.prompt, /four-person source MUST produce a four-person group/);
+  assert.match(pair.prompt, /face visibility rule in CAST SELECTION overrides the estimate/);
+  assert.match(pair.prompt, /at least half of their face is visible/);
   assert.match(pair.prompt, /very slightly parted/);
   assert.match(pair.prompt, /Include BOTH Lunar bottles/);
   assert.match(pair.prompt, /Left\/right determines staging, never gender/);
@@ -137,6 +137,12 @@ test("both treatments reach generation with the correct bottle and postcard pale
     assert.equal(spec.aspectRatio, "3:2");
     assert.match(spec.prompt, /IDENTITY LOCK:/);
     assert.match(spec.prompt, /Include ALL of them exactly once/);
+    assert.match(spec.prompt, /Never complete a cropped body by inventing a face/);
+    assert.match(spec.prompt, /use only their own source face/);
+    assert.match(spec.prompt, /SQUARE footprint when viewed from above/);
+    assert.match(spec.prompt, /perfectly rotationally symmetric surface of revolution/);
+    assert.match(spec.prompt, /smoothly domed, rounded ends/);
+    assert.match(spec.prompt, /optically clear/);
     assert.match(spec.prompt, /Nobody holds a bottle/);
     assert.doesNotMatch(spec.prompt, /Include BOTH|The guest holds|complementary bottle/);
     let prompt;
