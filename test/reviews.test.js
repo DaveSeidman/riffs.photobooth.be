@@ -13,13 +13,15 @@ test('review preserves the actual model input and prompt and restricts read/writ
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'lunar-review-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const uploads=[],calls=[];
   const image=await sharp({create:{width:1400,height:1100,channels:3,background:'#734568'}}).jpeg().toBuffer();
-  const runtime={...config,reviewToken:'test-access',falKey:'',falModel:'fal-ai/nano-banana-2/edit',falResolution:'1K',falThinkingLevel:'high',allowedOrigins:[],print:{prepareStrips:false},directories:{photos:path.join(root,'photos'),uploads:path.join(root,'uploads')}};
-  const app=createApp({config:runtime,editor:{upload:async b=>{uploads.push(Buffer.from(b));return `https://test.invalid/${uploads.length}`;},edit:async(images,prompt)=>{calls.push({images,prompt});return `data:image/jpeg;base64,${image.toString('base64')}`;}}});
+  const runtime={...config,reviewToken:'test-access',falKey:'',falModel:'fal-ai/nano-banana-2/edit',falResolution:'1K',falThinkingLevel:'high',campaignThinkingLevel:'minimal',allowedOrigins:[],print:{prepareStrips:false},directories:{photos:path.join(root,'photos'),uploads:path.join(root,'uploads')}};
+  const app=createApp({config:runtime,editor:{upload:async b=>{uploads.push(Buffer.from(b));return `https://test.invalid/${uploads.length}`;},edit:async(images,prompt,{thinkingLevel})=>{calls.push({images,prompt,thinkingLevel});return `data:image/jpeg;base64,${image.toString('base64')}`;}}});
   await request(app).get('/api/reviews').expect(401);
   const response=await request(app).post('/submit').field('style','dramatic-pose').field('portraitContext',JSON.stringify({peopleCount:1,treatment:'blush'})).attach('photo',image,'capture.jpg').expect(200);
   const id=response.body.output.photoId;
   const list=await request(app).get('/api/reviews').set('Authorization','Bearer test-access').expect(200);
-  const record=list.body.reviews[0];assert.equal(record.prompt,calls[0].prompt);assert.equal(record.legacy,false);assert.equal(record.parameters.thinking_level,'high');assert.equal(record.status,'completed');
+  const record=list.body.reviews[0];assert.equal(record.prompt,calls[0].prompt);assert.equal(record.legacy,false);assert.equal(record.parameters.thinking_level,'minimal');assert.equal(record.status,'completed');
+  assert.equal(record.parameters.thinking_level, calls[0].thinkingLevel);
+  assert.equal(record.parameters.include_thoughts, false);
   assert.deepEqual(await fs.readFile(path.join(root,'reviews',`${id}-input.jpg`)),uploads[0]);
   assert.deepEqual(await fs.readFile(path.join(root,'reviews',`${id}-reference.jpg`)),uploads[1]);
   assert.equal((await sharp(uploads[0]).metadata()).width,1024);

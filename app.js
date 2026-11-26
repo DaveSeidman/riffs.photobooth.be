@@ -185,6 +185,7 @@ export function createApp(overrides = {}) {
       activePhotoId = photoId;
       setStage("preparing");
       const inputWidth = isCampaign ? Math.max(1024, runtimeConfig.falInputWidth || 512) : runtimeConfig.falInputWidth || 512;
+      const thinkingLevel = isCampaign ? runtimeConfig.campaignThinkingLevel ?? "minimal" : runtimeConfig.falThinkingLevel;
       const modelBuffer = await resizeForModel(request.file.path, inputWidth);
       logEvent("generation.source-prepared", { requestId: request.requestId, photoId, bytes: modelBuffer.length, inputWidth });
       const inferenceStarted = performance.now();
@@ -209,25 +210,28 @@ export function createApp(overrides = {}) {
           aiTask: async (signal) => {
             if (!aiAvailable) throw new Error("AI service is not configured.");
             const prompt=promptOverride || style.prompt;
-            const {image_urls,...parameters}=falInput({model:runtimeConfig.falModel,resolution:runtimeConfig.falResolution,thinkingLevel:runtimeConfig.falThinkingLevel,imageUrl:[],prompt,aspectRatio:isCampaign?style.aspectRatio:undefined});
+            const aspectRatio = isCampaign ? style.aspectRatio : undefined;
+            const {image_urls,...parameters}=falInput({model:runtimeConfig.falModel,resolution:runtimeConfig.falResolution,thinkingLevel,imageUrl:[],prompt,aspectRatio});
+            const editContext = { signal, onQueueUpdate, thinkingLevel, aspectRatio };
             reviews.start({id:photoId,prompt,model:runtimeConfig.falModel,parameters,styleId:style.id,styleLabel:style.label,portraitContext:portraitContext||null},modelBuffer,isCampaign?await bottleBuffer():null);
             let output;
             if (sourceUrlPromise) {
               const sourceUrl = await sourceUrlPromise;
               signal.throwIfAborted();
-              output = { styledUrl: await editor.edit(sourceUrl, promptOverride || style.prompt, { photoId, role: "selected", signal, onQueueUpdate, aspectRatio: isCampaign ? style.aspectRatio : undefined }) };
-            } else output = await editor.styleTransfer(modelBuffer, request.file.filename, promptOverride || style.prompt, {signal, onQueueUpdate, aspectRatio: isCampaign ? style.aspectRatio : undefined});
+              output = { styledUrl: await editor.edit(sourceUrl, prompt, { ...editContext, photoId, role: "selected" }) };
+            } else output = await editor.styleTransfer(modelBuffer, request.file.filename, prompt, editContext);
             setStage("finishing");
             const image = await fetchBuffer(output.styledUrl, signal);
             return { ...output, buffer: await sharp(image).rotate().jpeg({ quality: 94, chromaSubsampling: "4:4:4" }).toBuffer(), label: promptOverride ? "Custom portrait" : style.label, styleProfile: style.id };
           },
         });
         logEvent("generation.portrait-ready", { requestId: request.requestId, photoId, generationMode: generated.generationMode, durationMs: Math.round(performance.now() - inferenceStarted) });
-        await Promise.all([
+        const [postcardAssets] = await Promise.all([
+          isCampaign && createPostcardAsset(generated.buffer, runtimeConfig.directories.photos, photoId, portraitContext),
           fs.promises.writeFile(pathForPhoto(photoId), generated.buffer),
           saveSourceImage({ sourceBuffer: originalBuffer, outputDirectory: runtimeConfig.directories.photos, photoId }),
         ]);
-        if (isCampaign) generated.postcardAssets = await createPostcardAsset(generated.buffer, runtimeConfig.directories.photos, photoId, portraitContext);
+        if (postcardAssets) generated.postcardAssets = postcardAssets;
         return generated;
       })();
       if (prepareStrip) {

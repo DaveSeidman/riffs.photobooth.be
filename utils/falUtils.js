@@ -28,6 +28,7 @@ export function falInput({model, resolution="1K", thinkingLevel="minimal", image
     if (model === "fal-ai/nano-banana-2/edit") {
       input.resolution = resolution;
       input.thinking_level = thinkingLevel;
+      if (thinkingLevel === "minimal") input.include_thoughts = false;
       input.enable_web_search = false;
     }
   return input;
@@ -53,7 +54,7 @@ export function createFalEditor({
   const edit = async (imageUrl, prompt, context = {}) => {
     const started = performance.now();
     logEvent("model.edit-started", { model, photoId: context.photoId, role: context.role });
-    const input = falInput({model,resolution,thinkingLevel,imageUrl,prompt,aspectRatio:context.aspectRatio});
+    const input = falInput({model,resolution,thinkingLevel:context.thinkingLevel ?? thinkingLevel,imageUrl,prompt,aspectRatio:context.aspectRatio});
     const result = await fal.subscribe(model, {
       input,
       logs: false,

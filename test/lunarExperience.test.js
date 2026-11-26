@@ -13,6 +13,11 @@ import { createApp } from "../app.js";
 import { config } from "../config.js";
 
 const context = { peopleCount: 2, affinities: ["pulse", "blush"] };
+const photo = await sharp({
+  create: { width: 80, height: 80, channels: 3, background: "#ab7c9f" },
+})
+  .jpeg()
+  .toBuffer();
 test("campaign direction preserves identities, supports solo and groups, and never assigns scent by appearance", () => {
   const pair = dramaticPoseSpec(context);
   assert.equal(pair.aspectRatio, "2:3");
@@ -68,11 +73,6 @@ async function appFor(t, editor) {
     editor,
   });
 }
-const photo = await sharp({
-  create: { width: 80, height: 80, channels: 3, background: "#ab7c9f" },
-})
-  .jpeg()
-  .toBuffer();
 test("campaign preserves source detail, sends identity and bottle references, and returns a postcard without strip generation", async (t) => {
   let calls = 0, uploads = 0, prompt, sourceWidth;
   const app = await appFor(t, {

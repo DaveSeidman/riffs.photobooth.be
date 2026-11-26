@@ -25,6 +25,7 @@ export const config = {
   falModel: process.env.FAL_MODEL || "fal-ai/nano-banana-2/edit",
   falResolution: process.env.FAL_RESOLUTION || "1K",
   falThinkingLevel: process.env.FAL_THINKING_LEVEL || "high",
+  campaignThinkingLevel: process.env.CAMPAIGN_THINKING_LEVEL || "minimal",
   falInputWidth: numberFromEnv("FAL_INPUT_WIDTH", 512),
   falTimeoutMs: numberFromEnv("FAL_TIMEOUT_MS", 30_000),
   campaignTimeoutMs: numberFromEnv("CAMPAIGN_TIMEOUT_MS", numberFromEnv("PATTERN_TIMEOUT_MS", 120000)),
